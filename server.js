@@ -9,12 +9,6 @@ const mongoose = require("mongoose");
 
 const app = express();
 
-// Database Connection
-connectDB().catch((err) => {
-  console.error("Failed to connect to MongoDB:", err);
-  process.exit(1);
-});
-
 // CORS Configuration
 const allowedOrigins = [
   "http://localhost:5173", // Vite dev server
@@ -58,6 +52,20 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from the uploads directory
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Database connection middleware
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection error:", error);
+    res.status(500).json({
+      message: "Database connection is not ready",
+      state: mongoose.connection.readyState,
+    });
+  }
+});
 
 // Welcome message route
 app.get("/", (req, res) => {
