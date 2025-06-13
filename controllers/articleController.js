@@ -18,11 +18,13 @@ const getArticles = async (req, res) => {
       });
     }
 
-    const articles = await Article.find().populate(
-      "author",
-      "firstName lastName"
-    );
+    const articles = await Article.find()
+      .populate("author", "firstName lastName")
+      .sort({ createdAt: -1 }); // Sort by creation date, newest first
+
     console.log("Articles fetched successfully:", articles.length);
+    console.log("Articles data:", JSON.stringify(articles, null, 2));
+
     res.json(articles);
   } catch (error) {
     console.error("Error in getArticles:", error);
@@ -38,8 +40,9 @@ const getArticles = async (req, res) => {
 // Create article
 const createArticle = async (req, res) => {
   try {
-    // Log incoming form data
+    // Log incoming data
     console.log("req.body:", req.body);
+
     // Build article data from req.body
     const articleData = {
       title: req.body.title,
@@ -47,11 +50,9 @@ const createArticle = async (req, res) => {
       category: req.body.category,
       status: req.body.status,
       author: new mongoose.Types.ObjectId(req.body.author),
+      image: req.body.image, // Now expecting a URL from ImgBB
     };
-    // If there's an uploaded file, add its path to the article data
-    if (req.file) {
-      articleData.image = `/uploads/${req.file.filename}`;
-    }
+
     console.log("articleData to create:", articleData);
     const article = await Article.create(articleData);
     res.status(201).json(article);
@@ -65,9 +66,9 @@ const updateArticle = async (req, res) => {
   try {
     const articleData = { ...req.body };
 
-    // If there's an uploaded file, add its path to the article data
-    if (req.file) {
-      articleData.image = `/uploads/${req.file.filename}`;
+    // If there's a new image URL, update it
+    if (req.body.image) {
+      articleData.image = req.body.image;
     }
 
     const article = await Article.findByIdAndUpdate(

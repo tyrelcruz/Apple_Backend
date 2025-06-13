@@ -8,15 +8,14 @@ const {
   getArticle,
 } = require("../controllers/articleController");
 const auth = require("../middleware/auth");
-const upload = require("../middleware/upload");
 
 // Public routes
 router.get("/", getArticles);
 router.get("/:id", getArticle);
 
 // Protected routes
-router.post("/", auth, upload.single("image"), createArticle);
-router.put("/:id", auth, upload.single("image"), updateArticle);
+router.post("/", auth, createArticle);
+router.put("/:id", auth, updateArticle);
 router.delete("/:id", auth, deleteArticle);
 
 module.exports = router;
