@@ -15,36 +15,36 @@ const allowedOrigins = [
   "http://localhost:3000", // Local backend
   "https://cruz-front-end.vercel.app",
   "https://appleclonefrontend.vercel.app",
-  "https://cruz-front-end-git-main-tyrelcruz.vercel.app", // Add your Vercel frontend URL
+  "https://cruz-front-end-git-main-tyrelcruz.vercel.app",
+  "https://apple-frontend-seven.vercel.app", // Your new frontend URL
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg =
-          "The CORS policy for this site does not allow access from the specified Origin.";
-        return callback(new Error(msg), false);
-      }
-      return callback(null, true);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-    exposedHeaders: ["Content-Range", "X-Content-Range"],
-    maxAge: 86400, // 24 hours
-  })
-);
+// CORS middleware
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+  );
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "Content-Range, X-Content-Range"
+  );
 
-// Handle preflight requests
-app.options("*", cors());
+  // Handle preflight
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
 
 // Middleware
 app.use(express.json());
@@ -56,13 +56,33 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Database connection middleware
 app.use(async (req, res, next) => {
   try {
+    console.log(
+      "Current MongoDB connection state:",
+      mongoose.connection.readyState
+    );
+
+    if (mongoose.connection.readyState === 1) {
+      console.log("Using existing database connection");
+      next();
+      return;
+    }
+
+    console.log("Attempting to establish database connection...");
     await connectDB();
+
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error(
+        `Database connection not ready. State: ${mongoose.connection.readyState}`
+      );
+    }
+
     next();
   } catch (error) {
     console.error("Database connection error:", error);
     res.status(500).json({
       message: "Database connection is not ready",
       state: mongoose.connection.readyState,
+      error: error.message,
     });
   }
 });
@@ -72,6 +92,10 @@ app.get("/", (req, res) => {
   res.json({
     message: "Welcome to Cruz MERN API",
     status: "Server is running",
+    database: {
+      state: mongoose.connection.readyState,
+      stateText: getConnectionStateText(mongoose.connection.readyState),
+    },
     endpoints: {
       users: "/api/users",
       articles: "/api/articles",
@@ -79,6 +103,17 @@ app.get("/", (req, res) => {
     },
   });
 });
+
+// Helper function to get connection state text
+function getConnectionStateText(state) {
+  const states = {
+    0: "disconnected",
+    1: "connected",
+    2: "connecting",
+    3: "disconnecting",
+  };
+  return states[state] || "unknown";
+}
 
 // Routes
 app.use("/api/users", userRoutes);
